@@ -1,0 +1,20 @@
+[package]
+name = "cargo-resources"
+version = "1.0.0"
+edition = "2021"
+description = "Cargo Resources provides a cargo command line tool and library, to help declare and collate resources within Cargo Crates."
+license = "AGPL-3"
+
+homepage = "https://github.com/PeteEvans/cargo-resources"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+cargo_metadata = "0.18.1"
+clap = { version = "4.5.4", features = ["derive"] }
+
+serde = { version = "1.0", features = ["derive"]}
+serde_json = { version = "1.0"}
+
+ring = { version = "0.17" }
+hex = "0.4.3"
