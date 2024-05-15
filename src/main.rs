@@ -14,7 +14,7 @@ fn main() -> Result<(), String> {
 
     match args.tool_name.as_deref() {
         None => println!("invoked without args - not from cargo"),
-        Some("resources") => println!("invoked as from cargo"),
+        Some("resources") => (),
         Some(&_) => panic!("incorrect invocation - call as a cargo tool - cargo resource ...")
     }
 

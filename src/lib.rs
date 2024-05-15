@@ -24,12 +24,15 @@ use cargo_metadata::{CargoOpt, Metadata, Package};
 use ring::digest::{Context, Digest, SHA256};
 
 mod resource_encoding;
+
 pub use resource_encoding::ResourceEncoding;
 
 mod declarations;
+
 pub use declarations::ResourceDataDeclaration;
 
 mod specifications;
+
 pub use specifications::ResourceSpecification;
 use crate::declarations::ResourceConsumerDeclaration;
 use crate::specifications::{ResourceConsumerSpecification, ResourceRequirement};
@@ -70,21 +73,27 @@ pub fn collate_resources(source_manifest: &Utf8PathBuf) -> Result<(), String> {
 
     let resource_root = required_resources_spec.resource_root;
 
+    if required_resources_spec.required_resources.len() <= 0 {
+        println!("No resources were found - finishing early.");
+        return Ok(())
+    }
+
     let mut resolved_resources = vec!();
     for req in required_resources_spec.required_resources {
         let res = declared_resources.get(&req.resource_name).ok_or(
-                format!("No resource found matching requirement {}", req.resource_name)
-            )?;
+            format!("No resource found matching requirement {}", req.resource_name)
+        )?;
         copy_resource(&res, &resource_root)?;
         resolved_resources.push(res);
     }
 
     // Write a record of the resources
+
     let res = serde_json::to_string(&resolved_resources)
         .expect("Unable to serialize the set of resolved resources");
 
     let record_file_path = resource_root.join("resolved_resources.json");
-    fs::write( record_file_path, res).map_err(|e| format!("Failed writing record file:{:?}", e))?;
+    fs::write(record_file_path, res).map_err(|e| format!("Failed writing record file:{:?}", e))?;
 
     Ok(())
 }
@@ -159,12 +168,12 @@ fn get_resource_requirement(
     let consumer_declaration = match &cargo_resource_metadata {
         Value::Null => ResourceConsumerDeclaration {
             resource_root: None,
-            requires: None
+            requires: None,
         },
         Value::Object(_) => {
             serde_json::from_value(cargo_resource_metadata.clone())
-                .map_err( | e | format!("Unable to read comsuming crates [package.metadata.cargo_resources]: {}", e.to_string()))?
-        },
+                .map_err(|e| format!("Unable to read comsuming crates [package.metadata.cargo_resources]: {}", e.to_string()))?
+        }
         _ => panic!("Misconfigured [package.metadata.cargo_resources] in consuming package.")
     };
 
@@ -172,12 +181,12 @@ fn get_resource_requirement(
 
     let required_resources: Vec<ResourceRequirement> = match consumer_declaration.requires {
         None => { // Default is to use all available resources with default options
-            available_resources.values().map(| res_spec | ResourceRequirement {
+            available_resources.values().map(|res_spec| ResourceRequirement {
                 resource_name: res_spec.resource_name.to_owned(),
             }).collect()
         }
         Some(declarations) => { // Just convert each declaration to a spec
-            declarations.into_iter().map( | dec | ResourceRequirement {
+            declarations.into_iter().map(|dec| ResourceRequirement {
                 resource_name: dec.resource_name.to_owned(),
             }).collect()
         }
@@ -224,10 +233,12 @@ fn copy_resource(
 
     println!(
         "Resource {} {:50} {}",
-        match already_exists { true => "existed:", false => " copied:" }.to_string(),
+        match already_exists {
+            true => "existed:",
+            false => " copied:"
+        }.to_string(),
         &output_resources_path,
         &new_sha,
-
     );
     Ok(())
 }
@@ -238,7 +249,7 @@ fn get_file_sha(path: &Utf8PathBuf) -> Result<Digest, String> {
     let mut file = File::open(path).map_err(|e| format!("Error opening {}, {}", path, e))?;
     let mut buffer = [0; 4096]; // Read sensible sized blocks from disk!
 
-    loop{
+    loop {
         let bytes_read = file.read(&mut buffer)
             .map_err(|e| format!("Error calculating SHA256 {}", e))?;
         if bytes_read == 0 {

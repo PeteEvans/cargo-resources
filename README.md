@@ -110,3 +110,10 @@ The supported Options are:
 
 ## Features
 This crate declares the following features:
+None as yet!
+
+## Troubleshooting
+
+1. It works locally but not from meuse.
+   * Check the resources are included in the published crate (add to include in the cargo.toml if required).
+2. 
