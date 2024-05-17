@@ -1,6 +1,6 @@
 [package]
 name = "cargo-resources"
-version = "1.0.1"
+version = "1.1.0"
 edition = "2021"
 description = "Cargo Resources provides a cargo command line tool and library, to help declare and collate resources within Cargo Crates."
 license = "GPL-3.0-or-later"
