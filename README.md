@@ -9,7 +9,7 @@ provides = [
     { crate_path = "resources/hello_world.txt", output_path="hello_world.txt" }
 ]
 ```
-Collate all resources declared by a crates (e.g. an executable) referenced crates them to a using crate using the cargo.
+Collate all the resources declared by a crate's dependencies (i.e. referenced crates), using a cargo command.
 
 `
 cargo resources
@@ -43,12 +43,12 @@ cargo install cargo-resources --fixed
 `
 
 ## Configuring Declared Resources
-Resources are declared using Cargo metadata, as this is the cargo resources crate, these are declared in:
+Resources are declared using Cargo metadata, as this is the cargo resources crate, these are declared in a 'section':
 
 ```toml
 [package.metadata.cargo_resources]
 ```
-Within this 'table' each resource is declared:
+Within this 'section' each resource is declared in the provides 'array' as a key/value table:
 
 ```toml
 provides = [
@@ -65,20 +65,20 @@ The supported information for each resource is:
 | output_path   | optional  | The relative resource path used on output, derived from crate_path when not set.            |
 | encoding      | optional  | File encoding (Txt or Bin), defaults to text. NB. Primarily for using crates.               |
 
-Normal usage is therefore setting crate_path and output_path, but just crate_path when output_path is the same.
+Normal usage is therefore setting crate_path and output_path, or just crate_path when output_path is identical.
 
 ## Declaring Resource Usage
 By convention a crate does not need to specify resource usage and defaults to collating all resources from the dependencies, to a default resource path.
 
-When this is not the required behaviour the using crate specifies its requirement in the Cargo.toml:
+When this is not the required behaviour, the using crate specifies its requirement in its Cargo.toml:
 
 ```toml
 [package.metadata.cargo_resources]
 ```
-Within this 'table' the following information can be provided:
+Within this 'section' the following information can be provided:
 
 ### The list of required resources
-These are specified as a list in 'requires'
+These are specified the 'requires' array:
 
 ```toml
 requires = [
@@ -96,16 +96,16 @@ NB. This is likely to be extended with extra options in future releases.
 
 ### Collation Options 
 
-Collation options are provided as key value pairs, For instance:
+Collation options are provided as key value pairs within the 'section', For instance:
 ```toml
 resource_root = "target/resources"
 ```
 
 The supported Options are:
 
-| Optional      | Notes                                                                                                 |
-|---------------|-------------------------------------------------------------------------------------------------------|
-| resource_root | The directory to use for the resource root, relative to the crate root. Defaults to target/resources. |
+| Collation Option | Notes                                                                                                 |
+|------------------|-------------------------------------------------------------------------------------------------------|
+| resource_root    | The directory to use for the resource root, relative to the crate root. Defaults to target/resources. |
 
 
 ## Features
@@ -116,4 +116,3 @@ None as yet!
 
 1. It works locally but not from meuse.
    * Check the resources are included in the published crate (add to include in the cargo.toml if required).
-2. 
