@@ -88,11 +88,12 @@ requires = [
 
 The supported information for each resource is:
 
-| Item          | Required? | Notes                                                                            |
-|---------------|-----------|----------------------------------------------------------------------------------|
-| resource_name | required  | The Unique Resource Name (as declared or derived in the providing crate).        |
+| Item          | Required? | Notes                                                                     |
+|---------------|-----------|---------------------------------------------------------------------------|
+| resource_name | required  | The Unique Resource Name (as declared or derived in the providing crate). |
+| required_sha  | optional  | An optional SHA256 hex value. If specified the resource's sha must match. |
 
-NB. This is likely to be extended with extra options in future releases.
+NB. If the required sha is set any change of the upstream resource will require a deliberate update in the using crate.
 
 ### Collation Options 
 
@@ -111,6 +112,14 @@ The supported Options are:
 ## Features
 This crate declares the following features:
 None as yet!
+
+## Version History
+
+| Version | Notes                                                                                                                      |
+|---------|----------------------------------------------------------------------------------------------------------------------------|
+| 1.0.0   | Initial Release.                                                                                                           |
+| 1.0.1   | Fix error for missing folder when no resources are copied.                                                                 |
+| 1.1.0   | Addition of required_sha in resource requirements.<br/> Terminate when resources would be copied outside of resource root. |
 
 ## Troubleshooting
 

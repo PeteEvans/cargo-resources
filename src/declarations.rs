@@ -1,5 +1,6 @@
 use cargo_metadata::camino::Utf8PathBuf;
 use crate::resource_encoding::ResourceEncoding;
+use crate::ResourceName;
 
 /// The structure matching the resource declaration (provides) in the package metadata.
 #[derive(serde::Deserialize, Debug)]
@@ -14,7 +15,7 @@ pub struct ResourceDataDeclaration {
     pub output_path: Option<Utf8PathBuf>,
 
     /// The unique name for the resource
-    pub resource_name: Option<String>
+    pub resource_name: Option<ResourceName>
 }
 
 /// The structure matching the resource usage declaration in the consuming package metadata.
@@ -31,5 +32,8 @@ pub struct ResourceConsumerDeclaration {
 #[derive(serde::Deserialize, Debug)]
 pub struct ResourceRequirementDeclaration {
     /// The unique name of the required resource
-    pub resource_name: String
+    pub resource_name: String,
+
+    /// The optional hex-encoded SHA256 value of the required resource
+    pub required_sha: Option<String>
 }

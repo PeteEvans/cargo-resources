@@ -18,24 +18,30 @@ use std::collections::HashMap;
 use std::fs;
 use std::fs::File;
 use std::io::Read;
-use serde_json::Value;
-use cargo_metadata::camino::Utf8PathBuf;
+
 use cargo_metadata::{CargoOpt, Metadata, Package};
+use cargo_metadata::camino::Utf8PathBuf;
 use ring::digest::{Context, Digest, SHA256};
+use serde_json::Value;
+
+pub use declarations::ResourceDataDeclaration;
+pub use resource_encoding::ResourceEncoding;
+pub use specifications::ResourceSpecification;
+
+use crate::declarations::ResourceConsumerDeclaration;
+use crate::specifications::{ResourceConsumerSpecification, ResourceRequirement};
 
 mod resource_encoding;
 
-pub use resource_encoding::ResourceEncoding;
-
 mod declarations;
-
-pub use declarations::ResourceDataDeclaration;
 
 mod specifications;
 
-pub use specifications::ResourceSpecification;
-use crate::declarations::ResourceConsumerDeclaration;
-use crate::specifications::{ResourceConsumerSpecification, ResourceRequirement};
+/// The Resource Name
+pub type ResourceName = String;
+
+/// The Resource's SHA 256 Value
+pub type ResourceSha = String;
 
 /// Collate the resources for the given crate, into the crate.
 ///
@@ -70,25 +76,23 @@ pub fn collate_resources(source_manifest: &Utf8PathBuf) -> Result<(), String> {
     let required_resources_spec = get_resource_requirement(&root_package, &declared_resources)?;
 
     // Where do we put the resources?
-
     let resource_root = required_resources_spec.resource_root;
 
     if required_resources_spec.required_resources.len() <= 0 {
         println!("No resources were found - finishing early.");
-        return Ok(())
+        return Ok(());
     }
 
     let mut resolved_resources = vec!();
-    for req in required_resources_spec.required_resources {
-        let res = declared_resources.get(&req.resource_name).ok_or(
-            format!("No resource found matching requirement {}", req.resource_name)
+    for res_req in required_resources_spec.required_resources {
+        let res_dec = declared_resources.get(&res_req.resource_name).ok_or(
+            format!("No resource found matching requirement {}", res_req.resource_name)
         )?;
-        copy_resource(&res, &resource_root)?;
-        resolved_resources.push(res);
+        copy_resource(&res_req, &res_dec, &resource_root)?;
+        resolved_resources.push(res_dec);
     }
 
     // Write a record of the resources
-
     let res = serde_json::to_string(&resolved_resources)
         .expect("Unable to serialize the set of resolved resources");
 
@@ -116,11 +120,33 @@ fn get_package_resource_data(
                 match declaration_result {
                     Ok(declaration) => {
                         // Do the conversions for optionals
-                        let resolved_output_path = declaration.output_path.unwrap_or(declaration.crate_path.to_owned());
+                        let resolved_output_path = declaration
+                            .output_path.
+                            unwrap_or(declaration.crate_path.to_owned());
                         let resolved_name = declaration.resource_name.unwrap_or(
                             declaration.crate_path.file_name()
                                 .expect("Illegal resource name").to_string().into()
                         );
+
+                        // Paths should be relative
+                        if declaration.crate_path.is_absolute() {
+                            Err(
+                                format!(
+                                    "Crate {} declares an absolute resource path {}",
+                                    &package.name,
+                                    &declaration.crate_path
+                                )
+                            )?
+                        }
+                        if resolved_output_path.is_absolute() {
+                            Err(
+                                format!(
+                                    "Crate {} declares an absolute output path {}",
+                                    &package.name,
+                                    &resolved_output_path
+                                )
+                            )?
+                        }
 
                         let full_source_path = package
                             .manifest_path.parent().expect("No manifest directory!")
@@ -172,7 +198,7 @@ fn get_resource_requirement(
         },
         Value::Object(_) => {
             serde_json::from_value(cargo_resource_metadata.clone())
-                .map_err(|e| format!("Unable to read comsuming crates [package.metadata.cargo_resources]: {}", e.to_string()))?
+                .map_err(|e| format!("Unable to read consuming crates [package.metadata.cargo_resources]: {}", e.to_string()))?
         }
         _ => panic!("Misconfigured [package.metadata.cargo_resources] in consuming package.")
     };
@@ -183,11 +209,13 @@ fn get_resource_requirement(
         None => { // Default is to use all available resources with default options
             available_resources.values().map(|res_spec| ResourceRequirement {
                 resource_name: res_spec.resource_name.to_owned(),
+                required_sha: None,
             }).collect()
         }
         Some(declarations) => { // Just convert each declaration to a spec
             declarations.into_iter().map(|dec| ResourceRequirement {
                 resource_name: dec.resource_name.to_owned(),
+                required_sha: dec.required_sha.to_owned(),
             }).collect()
         }
     };
@@ -197,11 +225,16 @@ fn get_resource_requirement(
 
 /// Copy the resource to the resources folder (if it doesn't already exist)
 fn copy_resource(
-    resource: &ResourceSpecification,
+    res_req: &ResourceRequirement,
+    res_dec: &ResourceSpecification,
     resource_root: &Utf8PathBuf,
 ) -> Result<(), String> {
-    let output_resources_path = resource_root.join(&resource.output_path);
+    let output_resources_path = resource_root
+        .join(&res_dec.output_path);
+    // Before copying, we should check the path isn't outside the resources root.
+    verify_resource_is_in_root(&output_resources_path, &resource_root)?;
 
+    // Create the output directory if it doesn't exist!
     let output_directory = output_resources_path.parent().unwrap();
     if !output_directory.exists() {
         fs::create_dir_all(&output_directory)
@@ -210,8 +243,26 @@ fn copy_resource(
             )?
     }
 
-    // Use sha256 (which is overkill) to check if the file has changed
-    let new_sha = hex::encode(get_file_sha(&resource.full_crate_path)?.as_ref());
+    // Use sha256 to check if the file has changed, and verify against a required_sha
+    let new_sha = hex::encode(get_file_sha(&res_dec.full_crate_path)?.as_ref());
+
+    // Return error if the required sha is set and doesn't match.
+    match res_req.required_sha {
+        Some(ref req) => {
+            if *req != new_sha {
+                Err(
+                    format!("Resource {} with sha {} does not match required sha {}.",
+                            res_req.resource_name,
+                            new_sha,
+                            req
+                    )
+                )?
+            }
+        }
+        _ => {}
+    }
+
+    // Only copy when the sha doesn't match (to avoid timestamp updates on the file)
     let mut already_exists = false;
     if output_resources_path.exists() {
         let existing_sha = hex::encode(get_file_sha(&output_resources_path)?.as_ref());
@@ -221,10 +272,10 @@ fn copy_resource(
     }
 
     if !already_exists {
-        fs::copy(&resource.full_crate_path, &output_resources_path)
+        fs::copy(&res_dec.full_crate_path, &output_resources_path)
             .map_err(|e|
                 format!("Unable to copy resource {} to {}: {}",
-                        &resource.full_crate_path,
+                        &res_dec.full_crate_path,
                         &output_resources_path,
                         e
                 )
@@ -259,4 +310,35 @@ fn get_file_sha(path: &Utf8PathBuf) -> Result<Digest, String> {
     }
 
     Ok(sha.finish())
+}
+
+// Check whether the resource is in the root!
+fn verify_resource_is_in_root(
+    resource_path: &Utf8PathBuf,
+    root_path: &Utf8PathBuf,
+) -> Result<(), String> {
+    let can_resource_path = resource_path.canonicalize_utf8()
+        .map_err(
+            |_e| format!(
+                "Unable to canonicalize resource path: {}",
+                resource_path
+            )
+        )?;
+    let can_root_path = root_path.canonicalize_utf8()
+        .map_err(
+            |_e| format!(
+                "Unable to canonicalize root path: {}",
+                root_path
+            )
+        )?;
+    if !can_resource_path.starts_with(&can_root_path) {
+        Err(
+            format!(
+                "Can't copy to {} as not in resource root {}",
+                can_resource_path,
+                can_root_path
+            )
+        )?
+    }
+    Ok(())
 }

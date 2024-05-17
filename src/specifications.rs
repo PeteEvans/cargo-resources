@@ -1,6 +1,7 @@
 use cargo_metadata::semver::Version;
 use cargo_metadata::camino::Utf8PathBuf;
 use crate::resource_encoding::ResourceEncoding;
+use crate::{ResourceName, ResourceSha};
 
 /// The fully populated resource specification (derived from a crate's resource declaration).
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
@@ -37,5 +38,8 @@ pub struct ResourceConsumerSpecification {
 #[derive(serde::Deserialize, Debug)]
 pub struct ResourceRequirement {
     /// The unique name of the required resource
-    pub resource_name: String
+    pub resource_name: ResourceName,
+
+    /// The optional hex-encoded SHA256 value of the required resource
+    pub required_sha: Option<ResourceSha>
 }
