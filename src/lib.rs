@@ -317,14 +317,6 @@ fn verify_resource_is_in_root(
     resource_path: &Utf8PathBuf,
     root_path: &Utf8PathBuf,
 ) -> Result<(), String> {
-    let can_resource_path = resource_path.canonicalize_utf8()
-        .map_err(
-            |e| format!(
-                "Unable to canonicalize resource path: {}: {}",
-                resource_path,
-                e
-            )
-        )?;
     let can_root_path = root_path.canonicalize_utf8()
         .map_err(
             |e| format!(
@@ -333,10 +325,20 @@ fn verify_resource_is_in_root(
                 e
             )
         )?;
+
+    let can_resource_path = resource_path.parent().unwrap().canonicalize_utf8()
+        .map_err(
+            |e| format!(
+                "Unable to canonicalize resource path: {}: {}",
+                resource_path,
+                e
+            )
+        )?;
+
     if !can_resource_path.starts_with(&can_root_path) {
         Err(
             format!(
-                "Can't copy to {} as not in resource root {}",
+                "Can't copy to {:?} as not in resource root {:?}",
                 can_resource_path,
                 can_root_path
             )

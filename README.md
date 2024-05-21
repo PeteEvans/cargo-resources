@@ -125,3 +125,6 @@ None as yet!
 
 1. It works locally but not from a published crate.
    * Check the resources are included in the published crate (add to include in the cargo.toml if required).
+
+2. Returns an error of : "Unable to canonicalize resource path: ...".
+   * A directory/folder in the output path does not exist.
