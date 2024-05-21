@@ -326,6 +326,22 @@ fn verify_resource_is_in_root(
             )
         )?;
 
+    // Create interim folders to allow parentage check
+    if !resource_path.parent().is_some() {
+        return Ok(());
+    }
+    let mut walked_directory = Utf8PathBuf::new();
+    let target_components = resource_path.parent().unwrap().components();
+    for component in target_components {
+
+        walked_directory = walked_directory.join(component);
+        if !walked_directory.exists() {
+            fs::create_dir_all(&walked_directory)
+                .map_err(|e|
+                    format!("Unable to create output directory {}: {}", &walked_directory, e)
+                )?
+        }
+    }
     let can_resource_path = resource_path.parent().unwrap().canonicalize_utf8()
         .map_err(
             |e| format!(
