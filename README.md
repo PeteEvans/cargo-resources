@@ -123,5 +123,5 @@ None as yet!
 
 ## Troubleshooting
 
-1. It works locally but not from meuse.
+1. It works locally but not from a published crate.
    * Check the resources are included in the published crate (add to include in the cargo.toml if required).

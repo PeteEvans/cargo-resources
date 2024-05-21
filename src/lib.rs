@@ -319,16 +319,18 @@ fn verify_resource_is_in_root(
 ) -> Result<(), String> {
     let can_resource_path = resource_path.canonicalize_utf8()
         .map_err(
-            |_e| format!(
-                "Unable to canonicalize resource path: {}",
-                resource_path
+            |e| format!(
+                "Unable to canonicalize resource path: {}: {}",
+                resource_path,
+                e
             )
         )?;
     let can_root_path = root_path.canonicalize_utf8()
         .map_err(
-            |_e| format!(
-                "Unable to canonicalize root path: {}",
-                root_path
+            |e| format!(
+                "Unable to canonicalize root path: {}: {}",
+                root_path,
+                e
             )
         )?;
     if !can_resource_path.starts_with(&can_root_path) {
