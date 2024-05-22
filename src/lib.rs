@@ -20,7 +20,7 @@ use std::fs::File;
 use std::io::Read;
 
 use cargo_metadata::{CargoOpt, Metadata, Package};
-use cargo_metadata::camino::Utf8PathBuf;
+use cargo_metadata::camino::{Utf8Path, Utf8PathBuf};
 use ring::digest::{Context, Digest, SHA256};
 use serde_json::Value;
 
@@ -77,6 +77,7 @@ pub fn collate_resources(source_manifest: &Utf8PathBuf) -> Result<(), String> {
 
     // Where do we put the resources?
     let resource_root = required_resources_spec.resource_root;
+    create_output_directory(&resource_root)?;
 
     if required_resources_spec.required_resources.len() <= 0 {
         println!("No resources were found - finishing early.");
@@ -236,12 +237,7 @@ fn copy_resource(
 
     // Create the output directory if it doesn't exist!
     let output_directory = output_resources_path.parent().unwrap();
-    if !output_directory.exists() {
-        fs::create_dir_all(&output_directory)
-            .map_err(|e|
-                format!("Unable to create output directory {}: {}", &output_directory, e)
-            )?
-    }
+    create_output_directory(output_directory)?;
 
     // Use sha256 to check if the file has changed, and verify against a required_sha
     let new_sha = hex::encode(get_file_sha(&res_dec.full_crate_path)?.as_ref());
@@ -335,12 +331,7 @@ fn verify_resource_is_in_root(
     for component in target_components {
 
         walked_directory = walked_directory.join(component);
-        if !walked_directory.exists() {
-            fs::create_dir_all(&walked_directory)
-                .map_err(|e|
-                    format!("Unable to create output directory {}: {}", &walked_directory, e)
-                )?
-        }
+        create_output_directory(&mut walked_directory)?;
     }
     let can_resource_path = resource_path.parent().unwrap().canonicalize_utf8()
         .map_err(
@@ -359,6 +350,17 @@ fn verify_resource_is_in_root(
                 can_root_path
             )
         )?
+    }
+    Ok(())
+}
+
+/// Create the output directory if it doesn't exist.
+fn create_output_directory(output_dir: &Utf8Path) -> Result<(), String> {
+    if !output_dir.exists() {
+        fs::create_dir_all(&output_dir)
+            .map_err(|e|
+                format!("Unable to create output directory {}: {}", &output_dir, e)
+            )?
     }
     Ok(())
 }
