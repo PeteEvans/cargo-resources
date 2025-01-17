@@ -120,6 +120,7 @@ None as yet!
 | 1.0.0   | Initial Release.                                                                                                           |
 | 1.0.1   | Fix error for missing folder when no resources are copied.                                                                 |
 | 1.1.0   | Addition of required_sha in resource requirements.<br/> Terminate when resources would be copied outside of resource root. |
+| 1.1.5   | Updated Licence to MIT.                                                                                                    |
 
 ## Troubleshooting
 

@@ -1,9 +1,9 @@
 [package]
 name = "cargo-resources"
-version = "1.1.4"
+version = "1.1.5"
 edition = "2021"
 description = "Cargo Resources provides a cargo command line tool and library, to help declare and collate resources within Cargo Crates."
-license = ""
+license = "MIT"
 
 repository = "https://github.com/PeteEvans/cargo-resources"
 
