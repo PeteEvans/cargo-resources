@@ -115,12 +115,13 @@ None as yet!
 
 ## Version History
 
-| Version | Notes                                                                                                                      |
-|---------|----------------------------------------------------------------------------------------------------------------------------|
-| 1.0.0   | Initial Release.                                                                                                           |
-| 1.0.1   | Fix error for missing folder when no resources are copied.                                                                 |
-| 1.1.0   | Addition of required_sha in resource requirements.<br/> Terminate when resources would be copied outside of resource root. |
-| 1.1.5   | Updated Licence to MIT.                                                                                                    |
+| Version | Notes                                                                                                                                                        |
+|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1.0.0   | Initial Release.                                                                                                                                             |
+| 1.0.1   | Fix error for missing folder when no resources are copied.                                                                                                   |
+| 1.1.0   | Addition of required_sha in resource requirements.<br/> Terminate when resources would be copied outside of resource root.                                   |
+| 1.1.5   | Updated Licence to MIT.                                                                                                                                      |
+| 1.1.6   | Fixed bug where resources could be collated from the workspace instead of the dependency tree.<br/> Added warning when finding resources with the same name. |
 
 ## Troubleshooting
 

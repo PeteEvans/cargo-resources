@@ -14,12 +14,12 @@
 //! // Collate resources from the crate's dependencies.
 //! let _r = collate_resources(&manifest_file);
 //! ```
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::fs::File;
 use std::io::Read;
 
-use cargo_metadata::{CargoOpt, Metadata, Package};
+use cargo_metadata::{CargoOpt, Metadata, Node, Package, PackageId, Resolve};
 use cargo_metadata::camino::{Utf8Path, Utf8PathBuf};
 use ring::digest::{Context, Digest, SHA256};
 use serde_json::Value;
@@ -29,7 +29,7 @@ pub use resource_encoding::ResourceEncoding;
 pub use specifications::ResourceSpecification;
 
 use crate::declarations::ResourceConsumerDeclaration;
-use crate::specifications::{ResourceConsumerSpecification, ResourceRequirement};
+use crate::specifications::{PackageDetails, ResourceConsumerSpecification, ResourceRequirement};
 
 mod resource_encoding;
 
@@ -62,17 +62,26 @@ pub fn collate_resources(source_manifest: &Utf8PathBuf) -> Result<(), String> {
         .exec()
         .unwrap();
 
-    // Find all the declared resources!
+    // Check the root package (may not be set for a workspace)
+    let root_package = metadata.root_package()
+        .expect("Unexpected error finding the consuming crate - please run in a crate not a workspace.");
 
-    // Find the packages recursively
-    let all_packages: &Vec<Package> = &metadata.packages;
+    // Create a lookup of packages including whether they are in the root package's dependency tree.
+    let packages_by_id = get_package_details(&metadata)?;
+
+    // Filter out packages that aren't in the dependency tree.
+    let child_packages = packages_by_id.iter()
+        .filter(|(_id, details)| details.is_dependency())
+        .map(|(_id, details)| &details.package)
+        .collect::<Vec<_>>();
+
+    // Find the declared resources in the dependency tree
     let mut declared_resources: HashMap<String, ResourceSpecification> = HashMap::new();
-    for package in all_packages {
+    for package in child_packages {
         get_package_resource_data(package, &mut declared_resources)?
     }
 
     // Find the resource requirement (for the consuming crate)
-    let root_package = metadata.root_package().expect("Unexpected error finding the consuming crate");
     let required_resources_spec = get_resource_requirement(&root_package, &declared_resources)?;
 
     // Where do we put the resources?
@@ -101,6 +110,45 @@ pub fn collate_resources(source_manifest: &Utf8PathBuf) -> Result<(), String> {
     fs::write(record_file_path, res).map_err(|e| format!("Failed writing record file:{:?}", e))?;
 
     Ok(())
+}
+
+/// Create the map of package details
+fn get_package_details(metadata: &Metadata) -> Result<HashMap<PackageId, PackageDetails>, String> {
+    let mut packages_by_id: HashMap<PackageId, PackageDetails> = HashMap::new();
+    // Initialise the lookups without the dependency information (i.e. not in root deps)
+    for ref package in metadata.packages.iter() {
+        packages_by_id.insert(
+            package.id.clone(),
+            PackageDetails::new(&package)
+        );
+    }
+    // Use the dependency tree from root to fix the dependency information
+    let root_package = metadata.root_package()
+        .ok_or("Unable to get root package")?;
+    // Convert the dependency nodes from a list to a map!
+    let dep_graph_root: &Resolve = metadata.resolve.as_ref().ok_or("Missing dependency graph.")?;
+    let node_list = &dep_graph_root.nodes;
+    let node_map: HashMap<PackageId, &Node> = node_list.iter().map(|n| (n.id.clone(), n)).collect();
+    // All packages from the root node are dependencies so we could recursively visit all the dependencies
+    // and then add them. However, using a stack and a set allows us to cut repetition.
+    let mut processed_packages = HashSet::new();
+    let mut pending_nodes = vec!(node_map.get(&root_package.id).ok_or("Missing dependency node")?);
+    while let Some(node) = pending_nodes.pop() {
+        // Set as a dependency
+        let details = packages_by_id.get_mut(&node.id).ok_or("Missing details.")?;
+        details.set_is_dependency();
+
+        // Add to done
+        processed_packages.insert(&node.id);
+
+        // Add any unprocessed nodes to the pending queue.
+        for pkg in &node.dependencies {
+            if !processed_packages.contains(pkg) {
+                pending_nodes.push(node_map.get(&pkg).ok_or("Missing details.")?);
+            }
+        }
+    }
+    Ok(packages_by_id)
 }
 
 /// Get all the resources information declared by a package
@@ -162,6 +210,14 @@ fn get_package_resource_data(
                         };
 
                         // Later resources will overwrite old ones!
+                        if resources.contains_key(&resolved_name) {
+                            println!(
+                                "WARNING: Duplicate resource {}\nReplacing:\t{:?}\nWith:\t\t{:?}\n",
+                                &resolved_name,
+                                resources.get(&resolved_name).unwrap().full_crate_path,
+                                &data.full_crate_path
+                            );
+                        }
                         resources.insert(resolved_name.to_owned(), data);
                     }
 
@@ -279,13 +335,13 @@ fn copy_resource(
     }
 
     println!(
-        "Resource {} {:50} {}",
+        "Resource {} {} {}",
         match already_exists {
             true => "existed:",
             false => " copied:"
         }.to_string(),
-        &output_resources_path,
         &new_sha,
+        &output_resources_path
     );
     Ok(())
 }

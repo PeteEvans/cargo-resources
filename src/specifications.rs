@@ -1,7 +1,8 @@
-use cargo_metadata::semver::Version;
-use cargo_metadata::camino::Utf8PathBuf;
 use crate::resource_encoding::ResourceEncoding;
 use crate::{ResourceName, ResourceSha};
+use cargo_metadata::camino::Utf8PathBuf;
+use cargo_metadata::semver::Version;
+use cargo_metadata::Package;
 
 /// The fully populated resource specification (derived from a crate's resource declaration).
 #[derive(serde::Serialize, serde::Deserialize, Debug)]
@@ -42,4 +43,35 @@ pub struct ResourceRequirement {
 
     /// The optional hex-encoded SHA256 value of the required resource
     pub required_sha: Option<ResourceSha>
+}
+
+/// Derived Package Details
+#[derive(Debug)]
+pub (crate) struct PackageDetails<'m> {
+    /// True if is a dependency of the package (from the root package)
+    is_dependency: bool,
+
+    /// The package details from metadata
+    pub (crate) package: &'m Package
+}
+
+impl<'m> PackageDetails<'m> {
+    /// Create an instance initially assuming not a dependency.
+    pub (crate) fn new(package: &'m Package) -> Self {
+        Self {
+            is_dependency: false,
+            package,
+        }
+    }
+
+    /// Mark package as a dependency (of root node).
+    pub (crate) fn set_is_dependency(&mut self) {
+        self.is_dependency = true;
+    }
+
+    /// True if the package is a dependency (of the root node, inclusively)
+    pub (crate) fn is_dependency(&self) -> bool {
+        self.is_dependency
+    }
+
 }
