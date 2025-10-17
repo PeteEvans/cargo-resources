@@ -1,5 +1,5 @@
 # cargo-resources
- A cargo executable crate for managing resources.
+A cargo executable crate for managing resources.
 
 ## TLDR
 Declare files as resources from your Cargo.toml files.
@@ -108,6 +108,29 @@ The supported Options are:
 |------------------|-------------------------------------------------------------------------------------------------------|
 | resource_root    | The directory to use for the resource root, relative to the crate root. Defaults to target/resources. |
 
+## Collecting Resources
+
+### Command line invocation
+To collate resources for a package from a terminal, cd to the terminal and run:
+```
+cargo resources
+```
+
+### Build Script Invocation
+To collate from part of a build process create a build.rs with something like:
+```rust
+use camino::Utf8PathBuf;
+use cargo_resources::reporting::BuildRsReporter;
+
+fn main() {
+    let manifest = Utf8PathBuf::from("./Cargo.toml");
+    let reporter = BuildRsReporter{};
+    cargo_resources::collate_resources_with_reporting(&manifest, &reporter).unwrap()
+}
+```
+
+This is using a reporter that is aware of cargo's build control syntax (in console output) and hence should display
+sensible output. Should you have special needs you can provide a custom reporter implementation instead.
 
 ## Features
 This crate declares the following features:
@@ -122,6 +145,7 @@ None as yet!
 | 1.1.0   | Addition of required_sha in resource requirements.<br/> Terminate when resources would be copied outside of resource root.                                   |
 | 1.1.5   | Updated Licence to MIT.                                                                                                                                      |
 | 1.1.6   | Fixed bug where resources could be collated from the workspace instead of the dependency tree.<br/> Added warning when finding resources with the same name. |
+| 1.2.0   | Indirection of progress reporting to allow control of cargo from build scripts (build.rs) where required.                                                    |
 
 ## Troubleshooting
 

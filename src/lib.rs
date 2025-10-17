@@ -5,14 +5,19 @@
 //! ```
 //! use std::env::current_dir;
 //! use cargo_metadata::camino::Utf8PathBuf;
-//! use cargo_resources::collate_resources;
+//! use cargo_resources::*;
 //! use std::error::Error;
+//! use cargo_resources::reporting::BuildRsReporter;
 //!
 //! let cwd = current_dir().unwrap();
 //! let manifest_file = Utf8PathBuf::from_path_buf(cwd).unwrap().join("Cargo.toml");
 //!
 //! // Collate resources from the crate's dependencies.
 //! let _r = collate_resources(&manifest_file);
+//!
+//! // or using build.rs formatted output.
+//! let reporter = BuildRsReporter{};
+//! let _r = collate_resources_with_reporting(&manifest_file, &reporter);
 //! ```
 use std::collections::{HashMap, HashSet};
 use std::fs;
@@ -29,6 +34,7 @@ pub use resource_encoding::ResourceEncoding;
 pub use specifications::ResourceSpecification;
 
 use crate::declarations::ResourceConsumerDeclaration;
+use crate::reporting::{DefaultReporter, ReportingTrait};
 use crate::specifications::{PackageDetails, ResourceConsumerSpecification, ResourceRequirement};
 
 mod resource_encoding;
@@ -36,6 +42,8 @@ mod resource_encoding;
 mod declarations;
 
 mod specifications;
+
+pub mod reporting; 
 
 /// The Resource Name
 pub type ResourceName = String;
@@ -51,6 +59,20 @@ pub type ResourceSha = String;
 /// # Returns
 /// Nothing on success, or a string error describing the failure.
 pub fn collate_resources(source_manifest: &Utf8PathBuf) -> Result<(), String> {
+    let reporter = DefaultReporter {};
+    collate_resources_with_reporting(source_manifest, &reporter)    
+}
+
+/// Collate the resources for the given crate, into the crate.
+///
+/// # Arguments
+/// * source_manifest: The path of the cargo manifest (Cargo.toml) of the crate.
+/// * reporter:        An implementation of teh ReportingTrait (to allow bespoke reporting of progress messages).
+///
+/// # Returns
+/// Nothing on success, or a string error describing the failure.
+
+pub fn collate_resources_with_reporting(source_manifest: &Utf8PathBuf, reporter: &impl ReportingTrait) -> Result<(), String> {
     if !source_manifest.exists() {
         Err(format!("Source manifest does not exist: {}", source_manifest))?
     }
@@ -78,7 +100,7 @@ pub fn collate_resources(source_manifest: &Utf8PathBuf) -> Result<(), String> {
     // Find the declared resources in the dependency tree
     let mut declared_resources: HashMap<String, ResourceSpecification> = HashMap::new();
     for package in child_packages {
-        get_package_resource_data(package, &mut declared_resources)?
+        get_package_resource_data(package, &mut declared_resources, reporter)?
     }
 
     // Find the resource requirement (for the consuming crate)
@@ -89,16 +111,19 @@ pub fn collate_resources(source_manifest: &Utf8PathBuf) -> Result<(), String> {
     create_output_directory(&resource_root)?;
 
     if required_resources_spec.required_resources.len() <= 0 {
-        println!("No resources were found - finishing early.");
+        reporter.report_no_resources_found();
         return Ok(());
     }
 
     let mut resolved_resources = vec!();
     for res_req in required_resources_spec.required_resources {
-        let res_dec = declared_resources.get(&res_req.resource_name).ok_or(
-            format!("No resource found matching requirement {}", res_req.resource_name)
+        let res_dec = declared_resources.get(&res_req.resource_name)
+            .ok_or_else(|| {
+                reporter.report_missing_resource(&res_req.resource_name);
+                format!("No resource found matching requirement {}", res_req.resource_name)
+            }
         )?;
-        copy_resource(&res_req, &res_dec, &resource_root)?;
+        copy_resource(&res_req, &res_dec, &resource_root, reporter)?;
         resolved_resources.push(res_dec);
     }
 
@@ -113,7 +138,7 @@ pub fn collate_resources(source_manifest: &Utf8PathBuf) -> Result<(), String> {
 }
 
 /// Create the map of package details
-fn get_package_details(metadata: &Metadata) -> Result<HashMap<PackageId, PackageDetails>, String> {
+fn get_package_details(metadata: &Metadata) -> Result<HashMap<PackageId, PackageDetails<'_>>, String> {
     let mut packages_by_id: HashMap<PackageId, PackageDetails> = HashMap::new();
     // Initialise the lookups without the dependency information (i.e. not in root deps)
     for ref package in metadata.packages.iter() {
@@ -155,6 +180,7 @@ fn get_package_details(metadata: &Metadata) -> Result<HashMap<PackageId, Package
 fn get_package_resource_data(
     package: &Package,
     resources: &mut HashMap<String, ResourceSpecification>,
+    reporter: &impl ReportingTrait,
 ) -> Result<(), String> {
     // We have the metadata, resources uses cargo_resources.provides as a collection within this!
     let cargo_resource_metadata: &Value = &package.metadata["cargo_resources"];
@@ -211,10 +237,9 @@ fn get_package_resource_data(
 
                         // Later resources will overwrite old ones!
                         if resources.contains_key(&resolved_name) {
-                            println!(
-                                "WARNING: Duplicate resource {}\nReplacing:\t{:?}\nWith:\t\t{:?}\n",
+                            reporter.report_duplicate_resource(
                                 &resolved_name,
-                                resources.get(&resolved_name).unwrap().full_crate_path,
+                                &resources.get(&resolved_name).unwrap().full_crate_path,
                                 &data.full_crate_path
                             );
                         }
@@ -222,6 +247,10 @@ fn get_package_resource_data(
                     }
 
                     Err(err) => {
+                        reporter.report_malformed_resource_declaration(
+                            &package.name,
+                            &err
+                        );
                         return Err(format!("Malformed resource declaration in {}: {}",
                                            package.name,
                                            err));
@@ -232,6 +261,7 @@ fn get_package_resource_data(
         }
         Value::Null => Ok(()),
         _ => {
+            reporter.report_malformed_resources_section();
             Err(
                 "unexpected type for [package.metadata.cargo_resources].provides in the json-metadata".to_owned()
             )
@@ -285,6 +315,7 @@ fn copy_resource(
     res_req: &ResourceRequirement,
     res_dec: &ResourceSpecification,
     resource_root: &Utf8PathBuf,
+    reporter: &impl ReportingTrait,
 ) -> Result<(), String> {
     let output_resources_path = resource_root
         .join(&res_dec.output_path);
@@ -334,15 +365,7 @@ fn copy_resource(
             )?;
     }
 
-    println!(
-        "Resource {} {} {}",
-        match already_exists {
-            true => "existed:",
-            false => " copied:"
-        }.to_string(),
-        &new_sha,
-        &output_resources_path
-    );
+    reporter.report_resource_collection(already_exists, &new_sha, &output_resources_path);
     Ok(())
 }
 

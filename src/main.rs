@@ -5,6 +5,7 @@ use cargo_metadata::camino::Utf8PathBuf;
 use clap::Parser;
 
 use cargo_resources::collate_resources;
+
 pub use resource_args::ResourceArgs;
 
 mod resource_args;
@@ -13,9 +14,9 @@ fn main() -> Result<(), String> {
     let args = ResourceArgs::parse();
 
     match args.tool_name.as_deref() {
-        None => println!("invoked without args - not from cargo"),
+        None => println!("invoked without args (e.g. cargo run) - not using cargo resources"),
         Some("resources") => (),
-        Some(&_) => panic!("incorrect invocation - call as a cargo tool - cargo resource ...")
+        Some(&_) => panic!("incorrect invocation - call as a cargo tool - cargo resources ...")
     }
 
     let package_path = match args.package {
