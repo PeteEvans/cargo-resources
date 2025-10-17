@@ -71,8 +71,24 @@ pub fn collate_resources(source_manifest: &Utf8PathBuf) -> Result<(), String> {
 ///
 /// # Returns
 /// Nothing on success, or a string error describing the failure.
-
 pub fn collate_resources_with_reporting(source_manifest: &Utf8PathBuf, reporter: &impl ReportingTrait) -> Result<(), String> {
+    collate_resources_with_crate_filter(source_manifest, reporter,  |_| true)
+}
+
+/// Collate the resources for the given crate, into the crate.
+///
+/// # Arguments
+/// * source_manifest: The path of the cargo manifest (Cargo.toml) of the crate.
+/// * reporter:        An implementation of teh ReportingTrait (to allow bespoke reporting of progress messages).
+/// * crate_filter:    A function to decide which crates to collect resources from.
+///
+/// # Returns
+/// Nothing on success, or a string error describing the failure.
+pub fn collate_resources_with_crate_filter(
+    source_manifest: &Utf8PathBuf,
+    reporter: &impl ReportingTrait,
+    crate_filter: impl Fn(&Package) -> bool
+) -> Result<(), String> {
     if !source_manifest.exists() {
         Err(format!("Source manifest does not exist: {}", source_manifest))?
     }
@@ -100,7 +116,9 @@ pub fn collate_resources_with_reporting(source_manifest: &Utf8PathBuf, reporter:
     // Find the declared resources in the dependency tree
     let mut declared_resources: HashMap<String, ResourceSpecification> = HashMap::new();
     for package in child_packages {
-        get_package_resource_data(package, &mut declared_resources, reporter)?
+        if crate_filter(package) {
+            get_package_resource_data(package, &mut declared_resources, reporter)?
+        }
     }
 
     // Find the resource requirement (for the consuming crate)

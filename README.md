@@ -146,6 +146,7 @@ None as yet!
 | 1.1.5   | Updated Licence to MIT.                                                                                                                                      |
 | 1.1.6   | Fixed bug where resources could be collated from the workspace instead of the dependency tree.<br/> Added warning when finding resources with the same name. |
 | 1.2.0   | Indirection of progress reporting to allow control of cargo from build scripts (build.rs) where required.                                                    |
+| 1.3.0   | Implemented new collation method for build scripts collate_resources_with_crate_filter().                                                                    |
 
 ## Troubleshooting
 
