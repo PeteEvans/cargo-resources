@@ -33,7 +33,8 @@ fn main() -> Result<(), String> {
     let source_manifest = package_path.join("Cargo.toml");
 
     // Use the library to do the actual work
-    collate_resources(&source_manifest)
+    collate_resources(&source_manifest)?;
+    Ok(())
 }
 
 

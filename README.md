@@ -125,12 +125,15 @@ use cargo_resources::reporting::BuildRsReporter;
 fn main() {
     let manifest = Utf8PathBuf::from("./Cargo.toml");
     let reporter = BuildRsReporter{};
-    cargo_resources::collate_resources_with_reporting(&manifest, &reporter).unwrap()
+    cargo_resources::collate_resources_with_reporting(&manifest, &reporter).unwrap();
 }
 ```
 
 This is using a reporter that is aware of cargo's build control syntax (in console output) and hence should display
 sensible output. Should you have special needs you can provide a custom reporter implementation instead.
+
+From v1.4 collate methods return a list of the collated resource's details, to support more complex build scenarios.
+e.g. validation or override of cargo build script change detection.
 
 ## Features
 This crate declares the following features:
@@ -138,15 +141,16 @@ None as yet!
 
 ## Version History
 
-| Version | Notes                                                                                                                                                        |
-|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| 1.0.0   | Initial Release.                                                                                                                                             |
-| 1.0.1   | Fix error for missing folder when no resources are copied.                                                                                                   |
-| 1.1.0   | Addition of required_sha in resource requirements.<br/> Terminate when resources would be copied outside of resource root.                                   |
-| 1.1.5   | Updated Licence to MIT.                                                                                                                                      |
-| 1.1.6   | Fixed bug where resources could be collated from the workspace instead of the dependency tree.<br/> Added warning when finding resources with the same name. |
-| 1.2.0   | Indirection of progress reporting to allow control of cargo from build scripts (build.rs) where required.                                                    |
-| 1.3.0   | Implemented new collation method for build scripts collate_resources_with_crate_filter().                                                                    |
+| Version | Notes                                                                                                                                                               |
+|---------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 1.0.0   | Initial Release.                                                                                                                                                    |
+| 1.0.1   | Fix error for missing folder when no resources are copied.                                                                                                          |
+| 1.1.0   | Addition of required_sha in resource requirements.<br/> Terminate when resources would be copied outside of resource root.                                          |
+| 1.1.5   | Updated Licence to MIT.                                                                                                                                             |
+| 1.1.6   | Fixed bug where resources could be collated from the workspace instead of the dependency tree.<br/> Added warning when finding resources with the same name.        |
+| 1.2.0   | Indirection of progress reporting to allow control of cargo from build scripts (build.rs) where required.                                                           |
+| 1.3.0   | Implemented new collation method for build scripts collate_resources_with_crate_filter().                                                                           |
+| 1.4.0   | Updated the collate methods to return the collated resource details (ResourceSpecification), and indicate whether the resource is local/patched or from a registry. |
 
 ## Troubleshooting
 

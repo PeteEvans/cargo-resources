@@ -5,7 +5,7 @@ use cargo_metadata::semver::Version;
 use cargo_metadata::Package;
 
 /// The fully populated resource specification (derived from a crate's resource declaration).
-#[derive(serde::Serialize, serde::Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
 pub struct ResourceSpecification {
     /// The crate identifier
     pub declaring_crate_name: String,
@@ -23,6 +23,9 @@ pub struct ResourceSpecification {
 
     /// The unique name for the resource
     pub resource_name: String,
+    
+    /// Whether the package is local/patched or from a package registry.
+    pub is_local: bool
 }
 
 /// The fully populated specification of the consuming package.

@@ -57,8 +57,8 @@ pub type ResourceSha = String;
 /// * source_manifest: The path of the cargo manifest (Cargo.toml) of the crate.
 ///
 /// # Returns
-/// Nothing on success, or a string error describing the failure.
-pub fn collate_resources(source_manifest: &Utf8PathBuf) -> Result<(), String> {
+/// The resolved resource information on success, or a string error describing the failure.
+pub fn collate_resources(source_manifest: &Utf8PathBuf) -> Result<Vec<ResourceSpecification>, String> {
     let reporter = DefaultReporter {};
     collate_resources_with_reporting(source_manifest, &reporter)    
 }
@@ -70,8 +70,8 @@ pub fn collate_resources(source_manifest: &Utf8PathBuf) -> Result<(), String> {
 /// * reporter:        An implementation of teh ReportingTrait (to allow bespoke reporting of progress messages).
 ///
 /// # Returns
-/// Nothing on success, or a string error describing the failure.
-pub fn collate_resources_with_reporting(source_manifest: &Utf8PathBuf, reporter: &impl ReportingTrait) -> Result<(), String> {
+/// The resolved resource information on success, or a string error describing the failure.
+pub fn collate_resources_with_reporting(source_manifest: &Utf8PathBuf, reporter: &impl ReportingTrait) -> Result<Vec<ResourceSpecification>, String> {
     collate_resources_with_crate_filter(source_manifest, reporter,  |_| true)
 }
 
@@ -83,12 +83,12 @@ pub fn collate_resources_with_reporting(source_manifest: &Utf8PathBuf, reporter:
 /// * crate_filter:    A function to decide which crates to collect resources from.
 ///
 /// # Returns
-/// Nothing on success, or a string error describing the failure.
+/// The resolved resource information on success, or a string error describing the failure.
 pub fn collate_resources_with_crate_filter(
     source_manifest: &Utf8PathBuf,
     reporter: &impl ReportingTrait,
     crate_filter: impl Fn(&Package) -> bool
-) -> Result<(), String> {
+) -> Result<Vec<ResourceSpecification>, String> {
     if !source_manifest.exists() {
         Err(format!("Source manifest does not exist: {}", source_manifest))?
     }
@@ -130,7 +130,7 @@ pub fn collate_resources_with_crate_filter(
 
     if required_resources_spec.required_resources.len() <= 0 {
         reporter.report_no_resources_found();
-        return Ok(());
+        return Ok(vec!());
     }
 
     let mut resolved_resources = vec!();
@@ -152,7 +152,7 @@ pub fn collate_resources_with_crate_filter(
     let record_file_path = resource_root.join("resolved_resources.json");
     fs::write(record_file_path, res).map_err(|e| format!("Failed writing record file:{:?}", e))?;
 
-    Ok(())
+    Ok(resolved_resources.into_iter().map(|r|r.clone()).collect())
 }
 
 /// Create the map of package details
@@ -251,6 +251,7 @@ fn get_package_resource_data(
                             full_crate_path: full_source_path,
                             output_path: resolved_output_path,
                             resource_name: resolved_name.to_owned(),
+                            is_local: package.source.is_none()
                         };
 
                         // Later resources will overwrite old ones!
