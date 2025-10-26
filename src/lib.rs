@@ -245,7 +245,7 @@ fn get_package_resource_data(
                             .manifest_path.parent().expect("No manifest directory!")
                             .join(declaration.crate_path);
                         let data = ResourceSpecification {
-                            declaring_crate_name: package.name.to_owned(),
+                            declaring_crate_name: package.name.as_ref().to_owned(),
                             declaring_crate_version: package.version.to_owned(),
                             encoding: declaration.encoding.unwrap_or(ResourceEncoding::Txt),
                             full_crate_path: full_source_path,

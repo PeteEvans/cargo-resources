@@ -151,6 +151,7 @@ None as yet!
 | 1.2.0   | Indirection of progress reporting to allow control of cargo from build scripts (build.rs) where required.                                                           |
 | 1.3.0   | Implemented new collation method for build scripts collate_resources_with_crate_filter().                                                                           |
 | 1.4.0   | Updated the collate methods to return the collated resource details (ResourceSpecification), and indicate whether the resource is local/patched or from a registry. |
+| 1.4.1   | Rebuilt on latest cargo_metadata v0.23.                                                                                                                             |
 
 ## Troubleshooting
 
@@ -159,3 +160,6 @@ None as yet!
 
 2. Returns an error of : "Unable to canonicalize resource path: ...".
    * A directory/folder in the output path does not exist.
+
+3. An old (or different) version of the resource is returned rather than expected version.
+   * Typically, this happens when there are multiple version of a resource declaring crate in the crate dependency graph. Use `cargo tree -d` to resolve. 
